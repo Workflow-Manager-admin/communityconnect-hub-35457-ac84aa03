@@ -1,0 +1,4 @@
+{
+    "command": "PORT=<port> BROWSER=none npm start",
+    "working_directory": "/home/kavia/workspace/code-generation/communityconnect-hub-35457-ac84aa03/communityconnect_hub"
+}

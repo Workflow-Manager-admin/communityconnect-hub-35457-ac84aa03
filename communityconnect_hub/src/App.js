@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './App.css';
 
 /**
@@ -21,6 +21,38 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // State for navigation tab ("home", "forums", "messages", etc.)
   const [navTab, setNavTab] = useState("home");
+
+  // Focus trap for sidebar, accessibility
+  const sidebarRef = useRef(null);
+
+  useEffect(() => {
+    if (sidebarOpen && sidebarRef.current) {
+      // Focus first interactive element in sidebar for accessibility
+      const firstButton = sidebarRef.current.querySelector("button.cchub-sidebar-close, button.cchub-sidebar-link");
+      if (firstButton) firstButton.focus();
+
+      // Focus trap logic (esc closes sidebar on mobile)
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") setSidebarOpen(false);
+
+        if (e.key === "Tab" && sidebarRef.current) {
+          const tabbables = sidebarRef.current.querySelectorAll('button, [tabindex="0"]');
+          if (tabbables.length === 0) return;
+          const first = tabbables[0];
+          const last = tabbables[tabbables.length - 1];
+          if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          } else if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        }
+      };
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [sidebarOpen]);
 
   // Sidebar links config
   const sidebarLinks = [
@@ -56,8 +88,16 @@ function App() {
       default:
         return (
           <>
-            <section style={{marginBottom: "2rem"}}>
-              <div style={{display: "flex", flexWrap: "wrap", gap: 24}}>
+            <section className="cchub-home-hero">
+              <div className="cchub-hero-main">
+                <div className="cchub-hero-welcome">
+                  <h1 className="cchub-title focusable" tabIndex="0" aria-label="Welcome to CommunityConnect Hub">Welcome to <span className="cchub-brand-highlight">CommunityConnect Hub</span></h1>
+                  <div className="cchub-description">
+                    <span role="img" aria-label="community">🤝</span> Bringing your local community together with news, events, weather, and shared resources—one easy-to-use hub, 24/7.
+                  </div>
+                </div>
+              </div>
+              <div className="cchub-hero-row">
                 <div style={{flex: '2 1 320px', minWidth: 300}}>
                   <NewsFeed compact />
                 </div>
@@ -74,53 +114,119 @@ function App() {
     }
   }
 
-  // Accessibility: trap focus when sidebar open on mobile
+  // Make body unscrollable when sidebar open (mobile)
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [sidebarOpen]);
 
   return (
-    <div className="app cchub-root">
+    <div className={`app cchub-root${sidebarOpen ? " sidebar-open" : ""}`}>
       {/* Top Navbar */}
-      <nav className="cchub-navbar" style={{background: '#000', color: '#fff', borderBottom: '1px solid #222'}}>
+      <nav className="cchub-navbar" style={{background: '#000', color: '#fff', borderBottom: '1px solid #222'}} aria-label="Main navigation">
         <div className="cchub-navbar-inner">
           <button
             className="cchub-sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Open navigation"
+            aria-expanded={sidebarOpen}
+            aria-controls="cchub-sidenav"
           >☰</button>
-          <div className="cchub-logo"><span className="cchub-logo-symbol">*</span> CommunityConnect Hub</div>
+          <div
+            className="cchub-logo"
+            tabIndex="0"
+            aria-label="CommunityConnect Hub Home"
+            role="banner"
+            onClick={() => { setNavTab("home"); window.scrollTo(0,0); }}
+            style={{ cursor: "pointer", outline: "none" }}
+          >
+            <span className="cchub-logo-symbol animate-pop" aria-hidden="true">*</span>
+            CommunityConnect Hub
+          </div>
           <div className="cchub-nav-actions">
-            {/* Quick actions (sign up, messages) */}
-            <button className="cchub-btn cchub-btn-accent" onClick={()=>setNavTab("profile")}>Profile</button>
-            <button className="cchub-btn" onClick={()=>setNavTab("messages")}>Messages</button>
+            <button
+              className={`cchub-btn cchub-btn-accent${navTab==="profile" ? " nav-active" : ""}`}
+              onClick={()=>setNavTab("profile")}
+              aria-current={navTab==="profile"}
+            >
+              <span role="img" aria-label="Profile">👤</span>
+              <span className="btn-label">Profile</span>
+            </button>
+            <button
+              className={`cchub-btn${navTab==="messages" ? " nav-active" : ""}`}
+              onClick={()=>setNavTab("messages")}
+              aria-current={navTab==="messages"}
+            >
+              <span role="img" aria-label="Messages">✉️</span>
+              <span className="btn-label">Messages</span>
+            </button>
           </div>
         </div>
       </nav>
       
       {/* Sidebar for navigation and resources */}
-      <aside className={`cchub-sidebar${sidebarOpen ? " cchub-sidebar-open" : ""}`}>
+      <aside
+        className={`cchub-sidebar${sidebarOpen ? " cchub-sidebar-open" : ""}`}
+        id="cchub-sidenav"
+        aria-label="Site sidebar"
+        aria-modal={sidebarOpen}
+        ref={sidebarRef}
+        tabIndex="-1"
+      >
         <div className="cchub-sidebar-header">
-          <span className="cchub-logo-symbol">*</span> Menu
-          <button onClick={()=>setSidebarOpen(false)} className="cchub-sidebar-close" aria-label="Close navigation">×</button>
+          <span className="cchub-logo-symbol animate-pop" aria-hidden="true">*</span>
+          <span>Menu</span>
+          <button
+            onClick={()=>setSidebarOpen(false)}
+            className="cchub-sidebar-close"
+            aria-label="Close navigation"
+            tabIndex={sidebarOpen ? 0 : -1}
+            aria-hidden={!sidebarOpen}
+          >×</button>
         </div>
-        <ul className="cchub-sidebar-links">
+        <ul className="cchub-sidebar-links" role="menu">
           {sidebarLinks.map(link => (
             <li key={link.key}>
               <button
-                className={`cchub-sidebar-link${navTab === link.key ? " active" : ""}`}
+                className={`cchub-sidebar-link transition-focus${navTab === link.key ? " active" : ""}`}
                 onClick={() => { setNavTab(link.key); setSidebarOpen(false); }}
+                aria-current={navTab === link.key}
+                tabIndex={sidebarOpen ? 0 : -1}
+                role="menuitem"
               >
                 <span className="cchub-sidebar-link-icon">{link.icon}</span> {link.label}
+                {navTab === link.key && <span className="cchub-nav-indicator" aria-hidden="true"></span>}
               </button>
             </li>
           ))}
         </ul>
         <div className="cchub-sidebar-section">
-          <h4 style={{margin:'1.5em 0 0.6em 0'}}>Quick Resources</h4>
+          <h4 style={{margin:'1.5em 0 0.6em 0', letterSpacing: "0.02em"}}>Quick Resources</h4>
           <ResourceDirectory mini />
         </div>
       </aside>
 
+      {/* Overlay behind sidebar for mobile */}
+      {sidebarOpen &&
+        <div
+          className="cchub-sidebar-overlay"
+          aria-label="Sidebar overlay"
+          tabIndex="0"
+          onClick={()=>setSidebarOpen(false)}
+        ></div>
+      }
+
       {/* Main body container */}
-      <main className="cchub-main" onClick={()=> sidebarOpen && setSidebarOpen(false)}>
+      <main
+        className="cchub-main"
+        onClick={()=> sidebarOpen && setSidebarOpen(false)}
+        tabIndex="-1"
+        aria-label="Main content"
+      >
         <div className="cchub-main-inner">
           {renderMainContent()}
         </div>
